@@ -1,0 +1,22 @@
+[package]
+name = "tideorm-sql-builder-derive"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94"
+description = "The Iden and IdenStatic derives of TideORM's SQL builder"
+license = "MIT"
+repository = "https://github.com/rust-ocean/tideorm-sql-builder"
+# Published with tideorm-sql-builder, which re-exports both derives.
+readme = "../README.md"
+keywords = ["sql", "derive", "tideorm"]
+categories = ["database"]
+
+[lib]
+name = "sql_builder_derive"
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.107"
+quote = "1.0.47"
+syn = "3.0.9"
+unicode-segmentation = "1.13.3"

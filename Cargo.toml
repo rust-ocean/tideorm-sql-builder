@@ -1,0 +1,50 @@
+[package]
+name = "tideorm-sql-builder"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94"
+description = "SQL builder for TideORM"
+license = "MIT"
+repository = "https://github.com/rust-ocean/tideorm-sql-builder"
+readme = "README.md"
+keywords = ["sql", "query-builder", "database", "tideorm"]
+categories = ["database"]
+
+# The builder, with its `Iden` derives in a proc-macro crate beside it.
+[workspace]
+members = [".", "tideorm-sql-builder-derive"]
+resolver = "3"
+
+[lib]
+name = "sql_builder"
+path = "src/lib.rs"
+
+[dependencies]
+tideorm-sql-builder-derive = { version = "0.1.0", path = "tideorm-sql-builder-derive" }
+chrono = { version = "0.4.30", features = ["serde"] }
+serde_json = "1.0"
+rust_decimal = "1"
+uuid = { version = "1", features = ["serde"] }
+
+[dev-dependencies]
+trybuild = "1.0.122"
+
+[[test]]
+name = "test-error"
+path = "tests/error.rs"
+
+[[test]]
+name = "test-mysql"
+path = "tests/mysql/mod.rs"
+
+[[test]]
+name = "test-postgres"
+path = "tests/postgres/mod.rs"
+
+[[test]]
+name = "test-sqlite"
+path = "tests/sqlite/mod.rs"
+
+[[test]]
+name = "derive-build"
+path = "tests/derive_build.rs"

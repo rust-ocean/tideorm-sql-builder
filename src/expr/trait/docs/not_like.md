@@ -1,0 +1,26 @@
+Express a `NOT LIKE` expression.
+
+# Examples
+
+```
+use sql_builder::*;
+
+let query = Query::select()
+    .columns(["character", "size_w", "size_h"])
+    .from("character")
+    .and_where(("character", "character").into_column_ref().not_like("Ours'%"))
+    .to_owned();
+
+assert_eq!(
+    query.to_string(MysqlQueryBuilder).unwrap(),
+    r#"SELECT `character`, `size_w`, `size_h` FROM `character` WHERE `character`.`character` NOT LIKE 'Ours\'%'"#
+);
+assert_eq!(
+    query.to_string(PostgresQueryBuilder).unwrap(),
+    r#"SELECT "character", "size_w", "size_h" FROM "character" WHERE "character"."character" NOT LIKE E'Ours\'%'"#
+);
+assert_eq!(
+    query.to_string(SqliteQueryBuilder).unwrap(),
+    r#"SELECT "character", "size_w", "size_h" FROM "character" WHERE "character"."character" NOT LIKE 'Ours''%'"#
+);
+```
