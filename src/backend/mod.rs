@@ -82,7 +82,9 @@ pub trait EscapeBuilder {
             match c {
                 '\\' => buffer.write_str("\\\\"),
                 '"' => buffer.write_str("\\\""),
-                '\'' => buffer.write_str("\\'"),
+                // doubled, not `\'`: MySQL reads `''` the same with
+                // NO_BACKSLASH_ESCAPES, where `\'` would end the literal
+                '\'' => buffer.write_str("''"),
                 '\0' => buffer.write_str("\\0"),
                 '\x08' => buffer.write_str("\\b"),
                 '\x09' => buffer.write_str("\\t"),

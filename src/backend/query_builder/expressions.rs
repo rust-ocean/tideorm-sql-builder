@@ -141,15 +141,17 @@ pub(super) fn prepare_case_statement<B: QueryBuilder>(
     Ok(())
 }
 
-pub(super) fn prepare_select_distinct<B: QueryBuilder>(
+pub(crate) fn prepare_select_distinct<B: QueryBuilder>(
     _builder: &B,
     select_distinct: &SelectDistinct,
     sql: &mut impl SqlWriter,
 ) -> Result<(), RenderError> {
     match select_distinct {
         SelectDistinct::All => sql.write_str("ALL").unwrap(),
-        SelectDistinct::Distinct => sql.write_str("DISTINCT").unwrap(),
-        SelectDistinct::DistinctRow => {}
+        // MySQL's DISTINCTROW is a synonym of DISTINCT.
+        SelectDistinct::Distinct | SelectDistinct::DistinctRow => {
+            sql.write_str("DISTINCT").unwrap()
+        }
         SelectDistinct::DistinctOn(_) => {
             return Err(RenderError::Unsupported(
                 "DISTINCT ON is PostgreSQL only".into(),

@@ -114,7 +114,7 @@ impl DeleteStatement {
     ///     .to_owned();
     ///
     /// assert_eq!(
-    ///     query.to_string(MysqlQueryBuilder).unwrap(),
+    ///     query.to_string(MariaDbDialect).unwrap(),
     ///     r#"DELETE FROM `glyph` WHERE `id` = 1 RETURNING `id`"#
     /// );
     /// assert_eq!(
@@ -145,7 +145,7 @@ impl DeleteStatement {
     ///     .to_owned();
     ///
     /// assert_eq!(
-    ///     query.to_string(MysqlQueryBuilder).unwrap(),
+    ///     query.to_string(MariaDbDialect).unwrap(),
     ///     r#"DELETE FROM `glyph` WHERE `id` = 1 RETURNING `id`"#
     /// );
     /// assert_eq!(
@@ -178,7 +178,7 @@ impl DeleteStatement {
     ///     .to_owned();
     ///
     /// assert_eq!(
-    ///     query.to_string(MysqlQueryBuilder).unwrap(),
+    ///     query.to_string(MariaDbDialect).unwrap(),
     ///     r#"DELETE FROM `glyph` WHERE `id` = 1 RETURNING *"#
     /// );
     /// assert_eq!(

@@ -18,6 +18,20 @@ impl QueryBuilder for SqliteQueryBuilder {
         expressions::prepare_expr_common(self, simple_expr, sql)
     }
 
+    fn prepare_function_name(
+        &self,
+        function: &Func,
+        sql: &mut impl SqlWriter,
+    ) -> Result<(), RenderError> {
+        if matches!(function, Func::BitAnd | Func::BitOr | Func::Md5) {
+            return Err(RenderError::Unsupported(
+                "SQLite has no BIT_AND, BIT_OR or MD5; call an extension's through Func::cust"
+                    .into(),
+            ));
+        }
+        functions::prepare_function_name_common(self, function, sql)
+    }
+
     fn prepare_select_lock(
         &self,
         _select_lock: &LockClause,
@@ -34,6 +48,23 @@ impl QueryBuilder for SqliteQueryBuilder {
     ) -> Result<(), RenderError> {
         Err(RenderError::Unsupported(
             "SQLite has no SELECT INTO a table".into(),
+        ))
+    }
+
+    // Only a SQLite compiled with SQLITE_ENABLE_UPDATE_DELETE_LIMIT parses
+    // them, and the bundled one is not.
+    fn prepare_mutation_order_limit(
+        &self,
+        orders: &[OrderExpr],
+        limit: &Option<Value>,
+        _: &mut impl SqlWriter,
+    ) -> Result<(), RenderError> {
+        if orders.is_empty() && limit.is_none() {
+            return Ok(());
+        }
+        Err(RenderError::Unsupported(
+            "SQLite has no ORDER BY or LIMIT in UPDATE or DELETE; scope it with a key subquery"
+                .into(),
         ))
     }
 

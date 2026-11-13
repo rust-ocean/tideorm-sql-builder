@@ -65,6 +65,9 @@ impl FunctionCall {
 
     /// Append a `FILTER (WHERE ...)` clause to the function call.
     ///
+    /// PostgreSQL and SQLite take it on an aggregate; MySQL and MariaDB have
+    /// none, so their builders refuse it with a [`RenderError`].
+    ///
     /// # Examples
     ///
     /// ```

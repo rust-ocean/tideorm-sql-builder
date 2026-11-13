@@ -13,7 +13,7 @@ let query = Query::select()
 
 assert_eq!(
     query.to_string(MysqlQueryBuilder).unwrap(),
-    r#"SELECT `character`, `size_w`, `size_h` FROM `character` WHERE `character`.`character` NOT LIKE 'Ours\'%'"#
+    r#"SELECT `character`, `size_w`, `size_h` FROM `character` WHERE `character`.`character` NOT LIKE 'Ours''%'"#
 );
 assert_eq!(
     query.to_string(PostgresQueryBuilder).unwrap(),

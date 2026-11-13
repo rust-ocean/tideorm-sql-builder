@@ -80,16 +80,30 @@ fn insert_6() {
 }
 
 #[test]
-fn insert_7() {
+fn returning_is_mariadb_only() {
+    let insert = Query::insert()
+        .into_table("glyph")
+        .or_default_values()
+        .returning_col("id")
+        .to_owned();
     assert_eq!(
-        Query::insert()
-            .into_table("glyph")
-            .or_default_values()
-            .returning_col("id")
-            .to_string(MysqlQueryBuilder)
-            .unwrap(),
+        insert.to_string(MariaDbDialect).unwrap(),
         "INSERT INTO `glyph` VALUES () RETURNING `id`"
     );
+    let delete = Query::delete()
+        .from_table("glyph")
+        .and_where(Expr::col("id").eq(1))
+        .returning_all()
+        .to_owned();
+    for error in [
+        insert.to_string(MysqlQueryBuilder).unwrap_err(),
+        delete.to_string(MysqlQueryBuilder).unwrap_err(),
+    ] {
+        assert_eq!(
+            error,
+            RenderError::Unsupported("MySQL has no RETURNING".into())
+        );
+    }
 }
 
 #[test]

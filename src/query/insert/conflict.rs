@@ -31,7 +31,7 @@ impl InsertStatement {
     ///     .take();
     ///
     /// assert_eq!(
-    ///     query.to_string(MysqlQueryBuilder).unwrap(),
+    ///     query.to_string(MariaDbDialect).unwrap(),
     ///     "INSERT INTO `glyph` (`image`) VALUES ('12A') RETURNING `id`"
     /// );
     /// assert_eq!(
@@ -63,7 +63,7 @@ impl InsertStatement {
     ///     .take();
     ///
     /// assert_eq!(
-    ///     query.to_string(MysqlQueryBuilder).unwrap(),
+    ///     query.to_string(MariaDbDialect).unwrap(),
     ///     "INSERT INTO `glyph` (`image`) VALUES ('12A') RETURNING `id`"
     /// );
     /// assert_eq!(
@@ -97,7 +97,7 @@ impl InsertStatement {
     ///     .take();
     ///
     /// assert_eq!(
-    ///     query.to_string(MysqlQueryBuilder).unwrap(),
+    ///     query.to_string(MariaDbDialect).unwrap(),
     ///     "INSERT INTO `glyph` (`image`) VALUES ('12A') RETURNING *"
     /// );
     /// assert_eq!(

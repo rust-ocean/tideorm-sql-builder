@@ -17,7 +17,12 @@ use crate::backend::dialect::{
 };
 use crate::{Value, error::RenderError};
 
-/// MariaDB's dialect: MySQL's, but for JSON equality.
+/// MariaDB's query builder and dialect.
+///
+/// They are MySQL's, but for JSON equality, `RETURNING`, an `ORDER BY`/`LIMIT`
+/// on an `UPDATE` that joins other tables, the rows of a `VALUES` list,
+/// written without `ROW`, and the shared row lock, `LOCK IN SHARE MODE` with
+/// no `OF`.
 #[derive(Default, Debug, Clone, Copy)]
 pub struct MariaDbDialect;
 
@@ -26,9 +31,9 @@ const OPEN_LIMIT: &str = "18446744073709551615";
 
 /// One [`SqlDialect`] impl for MySQL and for MariaDB, `$mariadb` telling them apart.
 macro_rules! mysql_family_dialect {
-    ($dialect:ty, $mariadb:expr) => {
+    ($dialect:ident, $mariadb:expr) => {
         impl SqlDialect for $dialect {
-            builder_dialect!(MysqlQueryBuilder);
+            builder_dialect!($dialect);
 
             fn json_equals(
                 &self,
@@ -222,6 +227,11 @@ fn array_append(column: &str, element: &Value) -> BoundSql {
 /// does not, an array's order does), and the rest keep their order and types;
 /// a NULL column stays NULL. `JSON_TABLE` reads a JSON null as SQL NULL on
 /// MySQL, hence the extra test when null is what is removed.
+///
+/// `JSON_ARRAYAGG` leaves its order undefined, so the kept elements are put
+/// in their original order explicitly: MariaDB's takes an `ORDER BY`, MySQL's
+/// runs as a window over them in that order. MariaDB's also stops at
+/// `group_concat_max_len`, which the TideORM MySQL driver raises.
 fn array_remove(column: &str, element: &Value, mariadb: bool) -> BoundSql {
     let value = document(element);
     let equal = json_equals("tideorm_element.v", &value, false, mariadb);
@@ -230,15 +240,32 @@ fn array_remove(column: &str, element: &Value, mariadb: bool) -> BoundSql {
     } else {
         ""
     };
+    let kept = "JSON_ARRAYAGG(JSON_EXTRACT(tideorm_element.v, '$')";
+    let (open, aggregate, close) = if mariadb {
+        (
+            "(SELECT COALESCE(",
+            format!("{kept} ORDER BY tideorm_element.i), JSON_ARRAY())"),
+            ")",
+        )
+    } else {
+        (
+            "COALESCE((SELECT ",
+            format!(
+                "{kept}) OVER (ORDER BY tideorm_element.i \
+                 ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)"
+            ),
+            " LIMIT 1), JSON_ARRAY())",
+        )
+    };
     bound!(
         format!(
             "CASE WHEN {column} IS NULL THEN NULL WHEN JSON_TYPE({column}) <> 'ARRAY' THEN {column} \
-             ELSE (SELECT COALESCE(JSON_ARRAYAGG(JSON_EXTRACT(tideorm_element.v, '$')), JSON_ARRAY()) \
-             FROM JSON_TABLE({column}, '$[*]' COLUMNS (v JSON PATH '$')) AS tideorm_element \
+             ELSE {open}{aggregate} \
+             FROM JSON_TABLE({column}, '$[*]' COLUMNS (i FOR ORDINALITY, v JSON PATH '$')) AS tideorm_element \
              WHERE {null_guard}NOT COALESCE("
         ),
         equal,
-        ", FALSE)) END"
+        format!(", FALSE){close} END")
     )
 }
 

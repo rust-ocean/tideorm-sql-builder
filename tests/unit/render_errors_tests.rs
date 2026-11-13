@@ -265,3 +265,90 @@ fn field_order_matches_null_and_refuses_an_empty_list() {
     );
     query_error(&order(Vec::new()), PostgresQueryBuilder);
 }
+
+/// MySQL writes a shared lock `FOR SHARE`, the form that takes `OF`,
+/// `NOWAIT` and `SKIP LOCKED`; MariaDB has only `LOCK IN SHARE MODE`, which
+/// takes the last two, and no `OF` at all.
+#[test]
+fn mysql_family_locks_follow_each_server() {
+    let lock = |r#type: LockType, tables: &[&'static str], behavior: LockBehavior| {
+        Query::select()
+            .column("v")
+            .from("t")
+            .lock_with_tables_behavior(r#type, tables.iter().copied(), behavior)
+            .to_owned()
+    };
+    let shared = lock(LockType::Share, &[], LockBehavior::Nowait);
+    assert_eq!(
+        shared.to_string(MysqlQueryBuilder).unwrap(),
+        "SELECT `v` FROM `t` FOR SHARE NOWAIT"
+    );
+    assert_eq!(
+        shared.to_string(MariaDbDialect).unwrap(),
+        "SELECT `v` FROM `t` LOCK IN SHARE MODE NOWAIT"
+    );
+    let skipping = lock(LockType::Update, &[], LockBehavior::SkipLocked);
+    assert_eq!(
+        skipping.to_string(MariaDbDialect).unwrap(),
+        "SELECT `v` FROM `t` FOR UPDATE SKIP LOCKED"
+    );
+    for r#type in [LockType::Share, LockType::Update] {
+        let of = lock(r#type, &["t"], LockBehavior::SkipLocked);
+        assert!(
+            of.to_string(MysqlQueryBuilder)
+                .unwrap()
+                .contains(" OF `t` SKIP LOCKED")
+        );
+        query_error(&of, MariaDbDialect);
+    }
+    let key_share = lock(LockType::KeyShare, &[], LockBehavior::Nowait);
+    query_error(&key_share, MysqlQueryBuilder);
+    query_error(&key_share, MariaDbDialect);
+}
+
+#[test]
+fn aggregate_filters_render_on_postgres_and_sqlite_only() {
+    let query = Query::select()
+        .expr(Func::count(Expr::col("v")).filter(Cond::all().add(Expr::col("v").gt(1))))
+        .from("t")
+        .to_owned();
+    assert_eq!(
+        query.to_string(SqliteQueryBuilder).unwrap(),
+        r#"SELECT COUNT("v") FILTER (WHERE "v" > 1) FROM "t""#
+    );
+    query_error(&query, MysqlQueryBuilder);
+    query_error(&query, MariaDbDialect);
+}
+
+#[test]
+fn sqlite_refuses_the_functions_it_lacks() {
+    for function in [
+        Func::bit_and(Expr::col("v")),
+        Func::bit_or(Expr::col("v")),
+        Func::md5(Expr::col("v")),
+    ] {
+        let query = Query::select().expr(function).from("t").to_owned();
+        query_error(&query, SqliteQueryBuilder);
+        assert!(query.to_string(MysqlQueryBuilder).is_ok());
+        assert!(query.to_string(PostgresQueryBuilder).is_ok());
+    }
+}
+
+/// `DISTINCTROW` is MySQL's synonym of `DISTINCT`, which the others write.
+#[test]
+fn distinct_row_is_distinct() {
+    let mut query = Query::select().column("v").from("t").to_owned();
+    query.distinct = Some(SelectDistinct::DistinctRow);
+    assert_eq!(
+        query.to_string(PostgresQueryBuilder).unwrap(),
+        r#"SELECT DISTINCT "v" FROM "t""#
+    );
+    assert_eq!(
+        query.to_string(SqliteQueryBuilder).unwrap(),
+        r#"SELECT DISTINCT "v" FROM "t""#
+    );
+    assert_eq!(
+        query.to_string(MysqlQueryBuilder).unwrap(),
+        "SELECT DISTINCTROW `v` FROM `t`"
+    );
+}

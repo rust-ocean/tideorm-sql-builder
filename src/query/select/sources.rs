@@ -120,6 +120,10 @@ impl SelectStatement {
     ///     r#"SELECT * FROM (VALUES ROW(1, 'hello'), ROW(2, 'world')) AS `x`"#
     /// );
     /// assert_eq!(
+    ///     query.to_string(MariaDbDialect).unwrap(),
+    ///     r#"SELECT * FROM (VALUES (1, 'hello'), (2, 'world')) AS `x`"#
+    /// );
+    /// assert_eq!(
     ///     query.to_string(PostgresQueryBuilder).unwrap(),
     ///     r#"SELECT * FROM (VALUES (1, 'hello'), (2, 'world')) AS "x""#
     /// );

@@ -1,6 +1,7 @@
 use crate::*;
 
-/// `mutation_limits`: whether the backend has `UPDATE`/`DELETE .. LIMIT`; PostgreSQL refuses it.
+/// `mutation_limits`: whether the backend has `UPDATE`/`DELETE .. LIMIT`;
+/// PostgreSQL and the bundled SQLite refuse it.
 fn limits(builder: impl QueryBuilder, mutation_limits: bool) {
     let select = Query::select()
         .expr(Expr::val(" LIMIT "))
@@ -53,7 +54,35 @@ fn limits(builder: impl QueryBuilder, mutation_limits: bool) {
 fn every_limit_is_literal_and_offsets_remain_bound() {
     limits(MysqlQueryBuilder, true);
     limits(PostgresQueryBuilder, false);
-    limits(SqliteQueryBuilder, true);
+    limits(SqliteQueryBuilder, false);
+}
+
+#[test]
+fn window_frame_offsets_are_literals() {
+    let frame = |end: Option<Frame>| {
+        let mut window = WindowStatement::partition_by("k");
+        window.frame(FrameType::Rows, Frame::Preceding(2), end);
+        Query::select()
+            .expr_window(Expr::col("v"), window)
+            .to_owned()
+    };
+    let (sql, values) = frame(None).build(PostgresQueryBuilder).unwrap();
+    assert!(sql.ends_with("ROWS 2 PRECEDING )"), "{sql}");
+    assert!(values.0.is_empty());
+    let (sql, _) = frame(Some(Frame::Following(3)))
+        .build(SqliteQueryBuilder)
+        .unwrap();
+    assert!(
+        sql.ends_with("ROWS BETWEEN 2 PRECEDING AND 3 FOLLOWING )"),
+        "{sql}"
+    );
+    let (sql, _) = frame(Some(Frame::CurrentRow))
+        .build(MysqlQueryBuilder)
+        .unwrap();
+    assert!(
+        sql.ends_with("ROWS BETWEEN 2 PRECEDING AND CURRENT ROW )"),
+        "{sql}"
+    );
 }
 
 #[test]

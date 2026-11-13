@@ -251,25 +251,17 @@ pub(super) fn prepare_condition_where<B: QueryBuilder>(
     Ok(())
 }
 
-pub(super) fn prepare_frame<B: QueryBuilder>(
-    builder: &B,
-    frame: &Frame,
-    sql: &mut impl SqlWriter,
-) -> Result<(), RenderError> {
+/// One bound of a window frame, an offset written as an integer literal,
+/// which every backend takes there.
+pub(super) fn prepare_frame(frame: &Frame, sql: &mut impl SqlWriter) {
     match *frame {
-        Frame::UnboundedPreceding => sql.write_str("UNBOUNDED PRECEDING").unwrap(),
-        Frame::Preceding(v) => {
-            builder.prepare_value(v.into(), sql)?;
-            sql.write_str("PRECEDING").unwrap();
-        }
-        Frame::CurrentRow => sql.write_str("CURRENT ROW").unwrap(),
-        Frame::Following(v) => {
-            builder.prepare_value(v.into(), sql)?;
-            sql.write_str("FOLLOWING").unwrap();
-        }
-        Frame::UnboundedFollowing => sql.write_str("UNBOUNDED FOLLOWING").unwrap(),
+        Frame::UnboundedPreceding => sql.write_str("UNBOUNDED PRECEDING"),
+        Frame::Preceding(v) => write!(sql, "{v} PRECEDING"),
+        Frame::CurrentRow => sql.write_str("CURRENT ROW"),
+        Frame::Following(v) => write!(sql, "{v} FOLLOWING"),
+        Frame::UnboundedFollowing => sql.write_str("UNBOUNDED FOLLOWING"),
     }
-    Ok(())
+    .unwrap();
 }
 
 pub(super) fn prepare_window_statement<B: QueryBuilder>(
@@ -301,11 +293,11 @@ pub(super) fn prepare_window_statement<B: QueryBuilder>(
         };
         if let Some(end) = &frame.end {
             sql.write_str("BETWEEN ").unwrap();
-            prepare_frame(builder, &frame.start, sql)?;
+            prepare_frame(&frame.start, sql);
             sql.write_str(" AND ").unwrap();
-            prepare_frame(builder, end, sql)?;
+            prepare_frame(end, sql);
         } else {
-            prepare_frame(builder, &frame.start, sql)?;
+            prepare_frame(&frame.start, sql);
         }
     }
     Ok(())

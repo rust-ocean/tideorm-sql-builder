@@ -238,7 +238,7 @@ impl UpdateStatement {
     ///     .to_owned();
     ///
     /// assert_eq!(
-    ///     query.to_string(MysqlQueryBuilder).unwrap(),
+    ///     query.to_string(MariaDbDialect).unwrap(),
     ///     r#"UPDATE `glyph` SET `aspect` = 2.1345, `image` = '235m' RETURNING `id`"#
     /// );
     /// assert_eq!(
@@ -270,7 +270,7 @@ impl UpdateStatement {
     ///     .to_owned();
     ///
     /// assert_eq!(
-    ///     query.to_string(MysqlQueryBuilder).unwrap(),
+    ///     query.to_string(MariaDbDialect).unwrap(),
     ///     r#"UPDATE `glyph` SET `aspect` = 2.1345, `image` = '235m' RETURNING `id`"#
     /// );
     /// assert_eq!(
@@ -304,7 +304,7 @@ impl UpdateStatement {
     ///     .to_owned();
     ///
     /// assert_eq!(
-    ///     query.to_string(MysqlQueryBuilder).unwrap(),
+    ///     query.to_string(MariaDbDialect).unwrap(),
     ///     r#"UPDATE `glyph` SET `aspect` = 2.1345, `image` = '235m' RETURNING *"#
     /// );
     /// assert_eq!(

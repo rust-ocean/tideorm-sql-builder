@@ -70,6 +70,28 @@ fn update_from_two_tables_joins_both() {
 }
 
 #[test]
+fn a_joined_update_is_ordered_and_limited_on_mariadb_only() {
+    let update = Query::update()
+        .table("glyph")
+        .value("tokens", Expr::column(("character", "character")))
+        .from("character")
+        .cond_where(Expr::col(("glyph", "id")).eq(Expr::col(("character", "id"))))
+        .order_by(("glyph", "id"), Order::Desc)
+        .limit(1)
+        .to_owned();
+    assert_eq!(
+        update.to_string(MariaDbDialect).unwrap(),
+        "UPDATE `glyph` JOIN `character` ON `glyph`.`id` = `character`.`id` SET `glyph`.`tokens` = `character`.`character` ORDER BY `glyph`.`id` DESC LIMIT 1"
+    );
+    assert_eq!(
+        update.to_string(MysqlQueryBuilder).unwrap_err(),
+        RenderError::Unsupported(
+            "MySQL has no ORDER BY or LIMIT in an UPDATE that joins other tables".into()
+        )
+    );
+}
+
+#[test]
 fn update_from_names_an_aliased_or_qualified_target() {
     let update = |target: TableRef, qualifier: &str| {
         Query::update()

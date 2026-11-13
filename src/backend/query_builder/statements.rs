@@ -83,7 +83,7 @@ pub(crate) fn prepare_insert_statement<B: QueryBuilder>(
 
     conflict::prepare_on_conflict(builder, &insert.on_conflict, sql)?;
 
-    conflict::prepare_returning(builder, &insert.returning, sql)?;
+    builder.prepare_returning(&insert.returning, sql)?;
     Ok(())
 }
 
@@ -241,9 +241,9 @@ pub(crate) fn prepare_update_statement<B: QueryBuilder>(
 
     builder.prepare_update_condition(&update.from, &update.r#where, sql)?;
 
-    builder.prepare_mutation_order_limit(&update.orders, &update.limit, sql)?;
+    builder.prepare_update_order_limit(&update.from, &update.orders, &update.limit, sql)?;
 
-    conflict::prepare_returning(builder, &update.returning, sql)?;
+    builder.prepare_returning(&update.returning, sql)?;
     Ok(())
 }
 
@@ -309,7 +309,7 @@ pub(crate) fn prepare_delete_statement<B: QueryBuilder>(
 
     builder.prepare_mutation_order_limit(&delete.orders, &delete.limit, sql)?;
 
-    conflict::prepare_returning(builder, &delete.returning, sql)?;
+    builder.prepare_returning(&delete.returning, sql)?;
     Ok(())
 }
 

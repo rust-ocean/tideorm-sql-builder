@@ -14,16 +14,24 @@ const QUOTE: Quote = Quote(b'`', b'`');
 
 pub type MySqlQueryBuilder = MysqlQueryBuilder;
 
-impl QuotedBuilder for MysqlQueryBuilder {
-    fn quote(&self) -> Quote {
-        QUOTE
-    }
+/// The builder traits MySQL and MariaDB share.
+macro_rules! mysql_family_builder {
+    ($builder:ty) => {
+        impl QuotedBuilder for $builder {
+            fn quote(&self) -> Quote {
+                QUOTE
+            }
+        }
+
+        impl EscapeBuilder for $builder {}
+
+        impl TableRefBuilder for $builder {}
+
+        impl PrecedenceDecider for $builder {}
+
+        impl OperLeftAssocDecider for $builder {}
+    };
 }
 
-impl EscapeBuilder for MysqlQueryBuilder {}
-
-impl TableRefBuilder for MysqlQueryBuilder {}
-
-impl PrecedenceDecider for MysqlQueryBuilder {}
-
-impl OperLeftAssocDecider for MysqlQueryBuilder {}
+mysql_family_builder!(MysqlQueryBuilder);
+mysql_family_builder!(MariaDbDialect);

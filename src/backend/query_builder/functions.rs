@@ -67,10 +67,19 @@ pub(super) fn prepare_function_arguments<B: QueryBuilder>(
     sql.write_str(")").unwrap();
 
     if let Some(filter) = &func.filter {
-        sql.write_str(" FILTER (WHERE ").unwrap();
-        conflict::prepare_condition_where(builder, filter, sql)?;
-        sql.write_str(")").unwrap();
+        builder.prepare_function_filter(filter, sql)?;
     }
+    Ok(())
+}
+
+pub(super) fn prepare_function_filter<B: QueryBuilder>(
+    builder: &B,
+    filter: &Condition,
+    sql: &mut impl SqlWriter,
+) -> Result<(), RenderError> {
+    sql.write_str(" FILTER (WHERE ").unwrap();
+    conflict::prepare_condition_where(builder, filter, sql)?;
+    sql.write_str(")").unwrap();
     Ok(())
 }
 

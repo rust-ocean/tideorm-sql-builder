@@ -276,6 +276,38 @@ pub trait QueryBuilder:
         statements::prepare_mutation_order_limit(self, orders, limit, sql)
     }
 
+    #[doc(hidden)]
+    /// Write the ORDER BY and LIMIT of an UPDATE, which joins the `from` tables
+    fn prepare_update_order_limit(
+        &self,
+        _from: &[TableRef],
+        orders: &[OrderExpr],
+        limit: &Option<Value>,
+        sql: &mut impl SqlWriter,
+    ) -> Result<(), RenderError> {
+        self.prepare_mutation_order_limit(orders, limit, sql)
+    }
+
+    #[doc(hidden)]
+    /// Write the `FILTER (WHERE ..)` of an aggregate call
+    fn prepare_function_filter(
+        &self,
+        filter: &Condition,
+        sql: &mut impl SqlWriter,
+    ) -> Result<(), RenderError> {
+        functions::prepare_function_filter(self, filter, sql)
+    }
+
+    #[doc(hidden)]
+    /// Write the RETURNING clause of an INSERT, UPDATE or DELETE
+    fn prepare_returning(
+        &self,
+        returning: &Option<ReturningClause>,
+        sql: &mut impl SqlWriter,
+    ) -> Result<(), RenderError> {
+        conflict::prepare_returning(self, returning, sql)
+    }
+
     fn write_string_quoted(&self, string: &str, buffer: &mut impl Write) {
         constants::write_string_quoted(self, string, buffer);
     }

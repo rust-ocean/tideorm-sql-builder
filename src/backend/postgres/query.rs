@@ -110,8 +110,6 @@ impl QueryBuilder for PostgresQueryBuilder {
         sql: &mut impl SqlWriter,
     ) -> Result<(), RenderError> {
         match select_distinct {
-            SelectDistinct::All => sql.write_str("ALL").unwrap(),
-            SelectDistinct::Distinct => sql.write_str("DISTINCT").unwrap(),
             SelectDistinct::DistinctOn(cols) => {
                 sql.write_str("DISTINCT ON (").unwrap();
 
@@ -129,7 +127,7 @@ impl QueryBuilder for PostgresQueryBuilder {
 
                 sql.write_str(")").unwrap();
             }
-            _ => {}
+            other => return expressions::prepare_select_distinct(self, other, sql),
         };
         Ok(())
     }
