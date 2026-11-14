@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use crate::{ColumnType, CommonSqlQueryBuilder, QueryBuilder, StringLen};
+use crate::{ColumnKind, ColumnType, CommonSqlQueryBuilder, QueryBuilder, StringLen};
 
 #[cfg(test)]
 #[path = "../tests/unit/value_tests.rs"]

@@ -99,7 +99,46 @@ impl PartialEq for ColumnType {
     }
 }
 
+/// What a column holds, as far as a `const` can tell: a [`ColumnType`]
+/// reduced to the kinds that checks made at compile time read, through
+/// [`ValueType::COLUMN_KIND`](crate::ValueType::COLUMN_KIND).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColumnKind {
+    /// An integer of up to 32 bits, signed or not.
+    Integer,
+    /// A 64-bit integer, signed or not.
+    BigInteger,
+    /// A floating-point number: `REAL`/`FLOAT` or `DOUBLE`.
+    Float,
+    /// A UUID.
+    Uuid,
+    /// Text: `CHAR`, `VARCHAR` or `TEXT`.
+    Text,
+    /// A JSON document: `JSON` or `JSONB`.
+    Json,
+    /// Any other type.
+    Other,
+}
+
 impl ColumnType {
+    /// The kind of value the column holds.
+    pub const fn kind(&self) -> ColumnKind {
+        match self {
+            Self::TinyInteger
+            | Self::SmallInteger
+            | Self::Integer
+            | Self::TinyUnsigned
+            | Self::SmallUnsigned
+            | Self::Unsigned => ColumnKind::Integer,
+            Self::BigInteger | Self::BigUnsigned => ColumnKind::BigInteger,
+            Self::Float | Self::Double => ColumnKind::Float,
+            Self::Uuid => ColumnKind::Uuid,
+            Self::Char(_) | Self::String(_) | Self::Text => ColumnKind::Text,
+            Self::Json | Self::JsonBinary => ColumnKind::Json,
+            _ => ColumnKind::Other,
+        }
+    }
+
     pub fn custom<T>(ty: T) -> ColumnType
     where
         T: IntoIden,

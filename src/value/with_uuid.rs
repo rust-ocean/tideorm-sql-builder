@@ -36,6 +36,8 @@ macro_rules! fmt_uuid_to_box_value {
             fn column_type() -> ColumnType {
                 ColumnType::Uuid
             }
+
+            const COLUMN_KIND: ColumnKind = ColumnKind::Uuid;
         }
     };
 }

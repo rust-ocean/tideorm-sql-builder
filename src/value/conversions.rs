@@ -87,6 +87,10 @@ pub trait ValueType: Sized {
 
     fn column_type() -> ColumnType;
 
+    /// The [`kind`](ColumnType::kind) of [`column_type`](Self::column_type),
+    /// readable in a `const`; [`ColumnKind::Other`] unless the type sets it.
+    const COLUMN_KIND: ColumnKind = ColumnKind::Other;
+
     fn enum_type_name() -> Option<&'static str> {
         None
     }
@@ -119,6 +123,8 @@ where
     fn column_type() -> ColumnType {
         T::column_type()
     }
+
+    const COLUMN_KIND: ColumnKind = T::COLUMN_KIND;
 }
 
 impl ValueType for Cow<'_, str> {
@@ -140,6 +146,8 @@ impl ValueType for Cow<'_, str> {
     fn column_type() -> ColumnType {
         ColumnType::Text
     }
+
+    const COLUMN_KIND: ColumnKind = ColumnKind::Text;
 }
 
 #[derive(Debug)]
@@ -199,6 +207,8 @@ impl ValueType for Enum {
     fn column_type() -> ColumnType {
         ColumnType::String(StringLen::None)
     }
+
+    const COLUMN_KIND: ColumnKind = ColumnKind::Text;
 }
 
 macro_rules! type_to_value {
@@ -235,6 +245,12 @@ macro_rules! type_to_value {
                 use ColumnType::*;
                 $col_type
             }
+
+            const COLUMN_KIND: ColumnKind = {
+                use ColumnType::*;
+                $col_type
+            }
+            .kind();
         }
     };
 }
@@ -331,6 +347,12 @@ macro_rules! type_to_box_value {
                 use ColumnType::*;
                 $col_type
             }
+
+            const COLUMN_KIND: ColumnKind = {
+                use ColumnType::*;
+                $col_type
+            }
+            .kind();
         }
     };
 }
