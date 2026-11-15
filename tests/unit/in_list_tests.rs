@@ -77,3 +77,25 @@ fn a_long_text_list_is_one_json_value_on_sqlite() {
         LONG_LIST + 1
     );
 }
+
+#[test]
+fn a_decimal_in_a_postgres_list_is_cast_to_numeric() {
+    let decimal = || Value::from(rust_decimal::Decimal::new(54, 1));
+    assert_eq!(
+        where_clause(
+            PostgresQueryBuilder,
+            vec![Value::from(1_i64), decimal()],
+            false
+        ),
+        (r#""id" IN ($1, CAST($2 AS NUMERIC))"#.to_string(), 2)
+    );
+    assert_eq!(
+        where_clause(PostgresQueryBuilder, vec![decimal(); LONG_LIST + 1], true),
+        (r#""id" <> ALL(CAST($1 AS NUMERIC[]))"#.to_string(), 1)
+    );
+    // The other dialects compare a decimal as one already.
+    assert_eq!(
+        where_clause(MysqlQueryBuilder, vec![decimal()], false),
+        ("`id` IN (?)".to_string(), 1)
+    );
+}

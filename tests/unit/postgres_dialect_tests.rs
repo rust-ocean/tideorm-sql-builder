@@ -19,3 +19,29 @@ fn json_set_checks_each_parent_first() {
         .collect();
     assert_eq!(values, texts);
 }
+
+/// A path TideORM parses is tested by `jsonb_path_exists` in strict mode, which
+/// CockroachDB has too, where `@?` is PostgreSQL's alone; a JSONPath it
+/// cannot parse keeps `@?`, which a GIN index serves.
+#[test]
+fn json_path_existence_renders_jsonb_path_exists_and_keeps_raw_paths() {
+    let (sql, values) = PostgresQueryBuilder
+        .json_exists(r#""doc""#, JsonExistence::Path, "$.a.b[1]", false)
+        .unwrap()
+        .build(&PostgresQueryBuilder);
+    assert_eq!(
+        sql,
+        r#"CASE WHEN "doc" IS NOT NULL THEN COALESCE(jsonb_path_exists(("doc")::jsonb, ($1::jsonpath), '{}', TRUE), FALSE) END"#
+    );
+    assert!(
+        matches!(&values[..], [Value::String(Some(path))] if path.starts_with("strict $")),
+        "{values:?}"
+    );
+
+    let (sql, values) = PostgresQueryBuilder
+        .json_exists(r#""doc""#, JsonExistence::Path, "$.a[*] ? (@ > 1)", false)
+        .unwrap()
+        .build(&PostgresQueryBuilder);
+    assert_eq!(sql, r#"("doc")::jsonb @? ($1::jsonpath)"#);
+    assert_eq!(values, [Value::String(Some("$.a[*] ? (@ > 1)".into()))]);
+}

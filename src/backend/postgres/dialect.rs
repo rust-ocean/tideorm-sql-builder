@@ -31,15 +31,38 @@ impl SqlDialect for PostgresQueryBuilder {
 
     /// A long list of one type is one array parameter, so any length fits in
     /// a statement and every length shares one prepared statement.
+    ///
+    /// A decimal is cast to `NUMERIC`: CockroachDB reads each value of a list
+    /// as the column's type, so against an integer column it would round
+    /// `5.4` to `5`, or fail past `i64::MAX`, where PostgreSQL compares
+    /// decimals.
     fn in_list(&self, column: Expr, values: Vec<Value>, negated: bool) -> Expr {
         if values.len() > LONG_LIST
             && let Some(array_type) = shared_array_type(&values)
         {
-            let array = Expr::val(Value::Array(array_type, Some(Box::new(values))));
+            let decimals = array_type == ArrayType::Decimal;
+            let mut array = Expr::val(Value::Array(array_type, Some(Box::new(values))));
+            if decimals {
+                array = array.cast_as("NUMERIC[]");
+            }
             return if negated {
                 column.ne(PgFunc::all(array))
             } else {
                 column.eq(PgFunc::any(array))
+            };
+        }
+        if values
+            .iter()
+            .any(|value| matches!(value, Value::Decimal(Some(_))))
+        {
+            let list = values.into_iter().map(|value| match value {
+                Value::Decimal(Some(_)) => Expr::val(value).cast_as("NUMERIC"),
+                value => Expr::val(value),
+            });
+            return if negated {
+                column.is_not_in(list)
+            } else {
+                column.is_in(list)
             };
         }
         in_list(column, values, negated)
@@ -65,10 +88,11 @@ impl SqlDialect for PostgresQueryBuilder {
     }
 
     /// A key is tested with `?`, which also finds a string element of an
-    /// array, so the document must be an object first; a path with `@?` in
-    /// `strict` mode, where the default `lax` mode would look into arrays and
-    /// read a scalar as an array of one. A path the other backends cannot
-    /// express is read as the JSONPath written.
+    /// array, so the document must be an object first; a path with
+    /// `jsonb_path_exists` in `strict` mode, where the default `lax` mode
+    /// would look into arrays and read a scalar as an array of one. A path the
+    /// other backends cannot express is read as the JSONPath written, with
+    /// `@?`, which a GIN index serves (CockroachDB has no `@?`).
     fn json_exists(
         &self,
         column: &str,
@@ -87,15 +111,16 @@ impl SqlDialect for PostgresQueryBuilder {
                     ")"
                 ),
             ),
-            // A step strict mode refuses is suppressed by `@?`, which then
-            // reports no answer; it is a missing member.
+            // A step strict mode refuses is suppressed by the silent
+            // `jsonb_path_exists`, which then reports no answer (PostgreSQL)
+            // or false (CockroachDB, which has no `@?`); it is a missing member.
             JsonExistence::Path => match parse_json_path(target) {
                 Some(steps) => unknown_when_null(
                     column,
                     bound!(
-                        format!("COALESCE({jsonb} @? ("),
+                        format!("COALESCE(jsonb_path_exists({jsonb}, ("),
                         text(format!("strict {}", json_path_text(&steps))),
-                        "::jsonpath), FALSE)"
+                        "::jsonpath), '{}', TRUE), FALSE)"
                     ),
                 ),
                 None => bound!(
