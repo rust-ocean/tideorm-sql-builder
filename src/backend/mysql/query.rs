@@ -47,6 +47,17 @@ macro_rules! mysql_family_query_builder {
                 ))
             }
 
+            // `WITH .. INSERT` is a syntax error; `INSERT .. WITH .. SELECT` is not.
+            fn prepare_insert_with(
+                &self,
+                _: &WithClause,
+                _: &mut impl SqlWriter,
+            ) -> Result<(), RenderError> {
+                Err(RenderError::Unsupported(
+                    "MySQL and MariaDB have no WITH before INSERT; give the INSERT's SELECT the WITH clause".into(),
+                ))
+            }
+
             fn prepare_with_query_clause_materialization(
                 &self,
                 _: &CommonTableExpression,
@@ -337,6 +348,21 @@ mysql_family_query_builder!(MariaDbDialect {
             ));
         }
         expressions::prepare_select_lock(self, lock, sql)
+    }
+
+    // MariaDB has `UPDATE .. RETURNING` from 13.0, and for one table only.
+    fn prepare_update_returning(
+        &self,
+        from: &[TableRef],
+        returning: &Option<ReturningClause>,
+        sql: &mut impl SqlWriter,
+    ) -> Result<(), RenderError> {
+        if !from.is_empty() && returning.is_some() {
+            return Err(RenderError::Unsupported(
+                "MariaDB has no RETURNING in an UPDATE that joins other tables".into(),
+            ));
+        }
+        self.prepare_returning(returning, sql)
     }
 
     fn lock_phrase(&self, lock_type: LockType) -> &'static str {

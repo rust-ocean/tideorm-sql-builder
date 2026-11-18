@@ -115,6 +115,11 @@ impl InsertStatement {
 
     /// Create a [WithQuery] by specifying a [WithClause] to execute this query with.
     ///
+    /// MySQL and MariaDB have no `WITH` before an `INSERT`, so this is a
+    /// [`RenderError`](crate::RenderError) there; give the `INSERT`'s
+    /// [`SelectStatement`] the `WITH` clause instead
+    /// ([`SelectStatement::with_cte`]).
+    ///
     /// # Examples
     ///
     /// ```
@@ -144,10 +149,8 @@ impl InsertStatement {
     ///         .unwrap();
     ///     let query = insert.with(with_clause);
     ///
-    /// assert_eq!(
-    ///     query.to_string(MysqlQueryBuilder).unwrap(),
-    ///     r#"WITH `cte` (`id`, `image`, `aspect`) AS (SELECT `id`, `image`, `aspect` FROM `glyph`) INSERT INTO `glyph` (`id`, `image`, `aspect`) SELECT `id`, `image`, `aspect` FROM `cte`"#
-    /// );
+    /// // MySQL and MariaDB refuse it.
+    /// assert!(query.to_string(MysqlQueryBuilder).is_err());
     /// assert_eq!(
     ///     query.to_string(PostgresQueryBuilder).unwrap(),
     ///     r#"WITH "cte" ("id", "image", "aspect") AS (SELECT "id", "image", "aspect" FROM "glyph") INSERT INTO "glyph" ("id", "image", "aspect") SELECT "id", "image", "aspect" FROM "cte""#
@@ -163,6 +166,11 @@ impl InsertStatement {
 
     /// Create a Common Table Expression by specifying a [CommonTableExpression][crate::CommonTableExpression]
     /// or [WithClause] to execute this query with.
+    ///
+    /// MySQL and MariaDB have no `WITH` before an `INSERT`, so this is a
+    /// [`RenderError`](crate::RenderError) there; give the `INSERT`'s
+    /// [`SelectStatement`] the `WITH` clause instead
+    /// ([`SelectStatement::with_cte`]).
     ///
     /// # Examples
     ///
@@ -193,10 +201,8 @@ impl InsertStatement {
     ///         .select_from(select)
     ///         .unwrap();
     ///
-    /// assert_eq!(
-    ///     query.to_string(MysqlQueryBuilder).unwrap(),
-    ///     r#"WITH `cte` (`id`, `image`, `aspect`) AS (SELECT `id`, `image`, `aspect` FROM `glyph`) INSERT INTO `glyph` (`id`, `image`, `aspect`) SELECT `id`, `image`, `aspect` FROM `cte`"#
-    /// );
+    /// // MySQL and MariaDB refuse it.
+    /// assert!(query.to_string(MysqlQueryBuilder).is_err());
     /// assert_eq!(
     ///     query.to_string(PostgresQueryBuilder).unwrap(),
     ///     r#"WITH "cte" ("id", "image", "aspect") AS (SELECT "id", "image", "aspect" FROM "glyph") INSERT INTO "glyph" ("id", "image", "aspect") SELECT "id", "image", "aspect" FROM "cte""#

@@ -155,6 +155,26 @@ pub trait QueryBuilder:
         functions::prepare_with_query_clause_materialization(self, cte, sql)
     }
 
+    #[doc(hidden)]
+    /// Write the body of a common table expression
+    fn prepare_cte_query(
+        &self,
+        query: &SubQueryStatement,
+        sql: &mut impl SqlWriter,
+    ) -> Result<(), RenderError> {
+        functions::prepare_cte_query(self, query, sql)
+    }
+
+    #[doc(hidden)]
+    /// Write the WITH clause that precedes an INSERT
+    fn prepare_insert_with(
+        &self,
+        with: &WithClause,
+        sql: &mut impl SqlWriter,
+    ) -> Result<(), RenderError> {
+        functions::prepare_with_clause(self, with, sql)
+    }
+
     fn prepare_function_name(
         &self,
         function: &Func,
@@ -286,6 +306,17 @@ pub trait QueryBuilder:
         sql: &mut impl SqlWriter,
     ) -> Result<(), RenderError> {
         self.prepare_mutation_order_limit(orders, limit, sql)
+    }
+
+    #[doc(hidden)]
+    /// Write the RETURNING clause of an UPDATE, which joins the `from` tables
+    fn prepare_update_returning(
+        &self,
+        _from: &[TableRef],
+        returning: &Option<ReturningClause>,
+        sql: &mut impl SqlWriter,
+    ) -> Result<(), RenderError> {
+        self.prepare_returning(returning, sql)
     }
 
     #[doc(hidden)]

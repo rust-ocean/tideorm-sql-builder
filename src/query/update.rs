@@ -225,6 +225,11 @@ impl UpdateStatement {
 
     /// RETURNING expressions.
     ///
+    /// MySQL has no `RETURNING`. MariaDB has it on an `UPDATE` from 13.0 and
+    /// for one table only, so one that joins [`from`](Self::from) tables is a
+    /// [`RenderError`](crate::RenderError); the builder does not know the
+    /// server's version, and an earlier MariaDB refuses the statement.
+    ///
     /// # Examples
     ///
     /// ```
@@ -256,6 +261,8 @@ impl UpdateStatement {
     }
 
     /// RETURNING expressions for a column.
+    ///
+    /// Where it renders: see [`returning`](Self::returning).
     ///
     /// # Examples
     ///
@@ -290,6 +297,8 @@ impl UpdateStatement {
     }
 
     /// RETURNING expressions all columns.
+    ///
+    /// Where it renders: see [`returning`](Self::returning).
     ///
     /// # Examples
     ///

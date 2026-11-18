@@ -1,6 +1,18 @@
 use super::*;
 
 impl SubQueryStatement {
+    /// Whether the statement writes rows: an INSERT, UPDATE or DELETE, or a
+    /// WITH query whose body is one.
+    pub(crate) fn writes(&self) -> bool {
+        match self {
+            SubQueryStatement::SelectStatement(_) => false,
+            SubQueryStatement::WithStatement(with) => {
+                with.query.as_deref().is_some_and(Self::writes)
+            }
+            _ => true,
+        }
+    }
+
     pub(crate) fn prepare_statement(
         &self,
         query_builder: &impl QueryBuilder,

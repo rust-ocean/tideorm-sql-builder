@@ -89,6 +89,61 @@ fn a_joined_update_is_ordered_and_limited_on_mariadb_only() {
             "MySQL has no ORDER BY or LIMIT in an UPDATE that joins other tables".into()
         )
     );
+    // Either clause alone is refused too, and a joined UPDATE without them renders.
+    let joined = Query::update()
+        .table("glyph")
+        .value("tokens", Expr::column(("character", "character")))
+        .from("character")
+        .cond_where(Expr::col(("glyph", "id")).eq(Expr::col(("character", "id"))))
+        .to_owned();
+    for update in [
+        joined
+            .clone()
+            .order_by(("glyph", "id"), Order::Desc)
+            .to_owned(),
+        joined.clone().limit(1).to_owned(),
+    ] {
+        assert!(update.to_string(MysqlQueryBuilder).is_err());
+        assert!(update.to_string(MariaDbDialect).is_ok());
+    }
+    assert!(joined.to_string(MysqlQueryBuilder).is_ok());
+}
+
+#[test]
+fn mariadb_returns_from_a_single_table_update_only() {
+    let update = Query::update()
+        .table("glyph")
+        .value("aspect", 1)
+        .and_where(Expr::col(("glyph", "id")).eq(1))
+        .to_owned();
+    assert_eq!(
+        update
+            .clone()
+            .returning_col("id")
+            .to_string(MariaDbDialect)
+            .unwrap(),
+        "UPDATE `glyph` SET `aspect` = 1 WHERE `glyph`.`id` = 1 RETURNING `id`"
+    );
+    let joined = update.clone().from("character").to_owned();
+    assert!(joined.to_string(MariaDbDialect).is_ok());
+    let joined_returning = joined.clone().returning_col(("glyph", "id")).to_owned();
+    assert_eq!(
+        joined_returning.to_string(MariaDbDialect).unwrap_err(),
+        RenderError::Unsupported(
+            "MariaDB has no RETURNING in an UPDATE that joins other tables".into()
+        )
+    );
+    assert_eq!(
+        joined_returning.to_string(MysqlQueryBuilder).unwrap_err(),
+        RenderError::Unsupported("MySQL has no RETURNING".into())
+    );
+    // PostgreSQL returns from an UPDATE .. FROM.
+    assert!(
+        joined_returning
+            .to_string(PostgresQueryBuilder)
+            .unwrap()
+            .ends_with(r#"RETURNING "glyph"."id""#)
+    );
 }
 
 #[test]

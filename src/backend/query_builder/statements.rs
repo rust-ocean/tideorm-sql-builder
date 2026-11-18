@@ -14,7 +14,7 @@ pub(crate) fn prepare_insert_statement<B: QueryBuilder>(
     sql: &mut impl SqlWriter,
 ) -> Result<(), RenderError> {
     if let Some(with) = &insert.with {
-        functions::prepare_with_clause(builder, with, sql)?;
+        builder.prepare_insert_with(with, sql)?;
     }
 
     builder.prepare_insert(insert.replace, sql)?;
@@ -243,7 +243,7 @@ pub(crate) fn prepare_update_statement<B: QueryBuilder>(
 
     builder.prepare_update_order_limit(&update.from, &update.orders, &update.limit, sql)?;
 
-    builder.prepare_returning(&update.returning, sql)?;
+    builder.prepare_update_returning(&update.from, &update.returning, sql)?;
     Ok(())
 }
 

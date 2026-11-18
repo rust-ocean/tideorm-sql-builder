@@ -88,13 +88,15 @@ pub(crate) fn prepare_with_query<B: QueryBuilder>(
     query: &WithQuery,
     sql: &mut impl SqlWriter,
 ) -> Result<(), RenderError> {
-    prepare_with_clause(builder, &query.with_clause, sql)?;
-    if let Some(query) = &query.query {
-        builder.prepare_query_statement(query, sql)?;
-    } else {
+    let Some(body) = &query.query else {
         return Err(RenderError::Unsupported("WITH query has no body".into()));
+    };
+    if let SubQueryStatement::InsertStatement(_) = **body {
+        builder.prepare_insert_with(&query.with_clause, sql)?;
+    } else {
+        prepare_with_clause(builder, &query.with_clause, sql)?;
     }
-    Ok(())
+    builder.prepare_query_statement(body, sql)
 }
 
 pub(super) fn prepare_with_clause<B: QueryBuilder>(
@@ -166,7 +168,7 @@ pub(super) fn prepare_with_query_clause_common_table<B: QueryBuilder>(
     sql.write_str("(").unwrap();
 
     match &cte.query {
-        CteQuery::SubQuery(sub_query) => builder.prepare_query_statement(sub_query, sql)?,
+        CteQuery::SubQuery(sub_query) => builder.prepare_cte_query(sub_query, sql)?,
         CteQuery::Values(items) if items.is_empty() => {
             return Err(RenderError::Unsupported(
                 "CTE has no query or values".into(),
@@ -177,6 +179,21 @@ pub(super) fn prepare_with_query_clause_common_table<B: QueryBuilder>(
 
     sql.write_str(")").unwrap();
     Ok(())
+}
+
+/// The body of a common table expression, which only PostgreSQL lets write
+/// rows.
+pub(super) fn prepare_cte_query<B: QueryBuilder>(
+    builder: &B,
+    query: &SubQueryStatement,
+    sql: &mut impl SqlWriter,
+) -> Result<(), RenderError> {
+    if query.writes() {
+        return Err(RenderError::Unsupported(
+            "INSERT, UPDATE or DELETE in a WITH clause is PostgreSQL only".into(),
+        ));
+    }
+    builder.prepare_query_statement(query, sql)
 }
 
 pub(super) fn prepare_with_query_clause_materialization<B: QueryBuilder>(

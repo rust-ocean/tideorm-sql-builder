@@ -132,6 +132,15 @@ impl QueryBuilder for PostgresQueryBuilder {
         Ok(())
     }
 
+    // A CTE's body can write rows here, and nowhere else.
+    fn prepare_cte_query(
+        &self,
+        query: &SubQueryStatement,
+        sql: &mut impl SqlWriter,
+    ) -> Result<(), RenderError> {
+        self.prepare_query_statement(query, sql)
+    }
+
     fn prepare_select_into(
         &self,
         into_table: &SelectInto,

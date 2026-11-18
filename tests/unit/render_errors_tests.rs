@@ -352,3 +352,116 @@ fn distinct_row_is_distinct() {
         "SELECT DISTINCTROW `v` FROM `t`"
     );
 }
+
+#[test]
+fn only_postgres_takes_a_cte_that_writes() {
+    let select = Query::select().column("id").from("t").to_owned();
+    let with = |body: SubQueryStatement| {
+        WithClause::new()
+            .cte(
+                CommonTableExpression::new()
+                    .table_name("c")
+                    .query(body)
+                    .to_owned(),
+            )
+            .to_owned()
+    };
+    let reading = |body: SubQueryStatement| with(body).query(select.clone());
+    let update = Query::update()
+        .table("t")
+        .value("v", 1)
+        .and_where(Expr::col("id").eq(1))
+        .returning_col("id")
+        .to_owned();
+    let delete = Query::delete()
+        .from_table("t")
+        .and_where(Expr::col("id").eq(1))
+        .to_owned();
+    let insert = Query::insert()
+        .into_table("t")
+        .columns(["id"])
+        .values_panic([1.into()])
+        .to_owned();
+    let writing: [SubQueryStatement; 4] = [
+        update.into(),
+        delete.clone().into(),
+        insert.into(),
+        // A nested WITH query whose body writes.
+        with(select.clone().into()).query(delete).into(),
+    ];
+    let refused = RenderError::Unsupported(
+        "INSERT, UPDATE or DELETE in a WITH clause is PostgreSQL only".into(),
+    );
+    for body in writing {
+        let query = reading(body);
+        assert!(query.to_string(PostgresQueryBuilder).is_ok());
+        assert_eq!(query_error(&query, MysqlQueryBuilder), refused);
+        assert_eq!(query_error(&query, MariaDbDialect), refused);
+        assert_eq!(query_error(&query, SqliteQueryBuilder), refused);
+    }
+    // A body that reads, a nested WITH query included, renders everywhere.
+    for body in [
+        select.clone().into(),
+        with(select.clone().into()).query(select.clone()).into(),
+    ] {
+        let query = reading(body);
+        assert!(query.to_string(PostgresQueryBuilder).is_ok());
+        assert!(query.to_string(MysqlQueryBuilder).is_ok());
+        assert!(query.to_string(MariaDbDialect).is_ok());
+        assert!(query.to_string(SqliteQueryBuilder).is_ok());
+    }
+}
+
+#[test]
+fn the_mysql_family_takes_an_inserts_with_in_its_select_only() {
+    let cte = WithClause::new()
+        .cte(
+            CommonTableExpression::new()
+                .table_name("c")
+                .query(Query::select().expr_as(Expr::val(1), "id").to_owned())
+                .to_owned(),
+        )
+        .to_owned();
+    let mut source = Query::select().column("id").from("c").to_owned();
+    let mut insert = Query::insert()
+        .into_table("t")
+        .columns(["id"])
+        .select_from(source.clone())
+        .unwrap()
+        .to_owned();
+    let refused = RenderError::Unsupported(
+        "MySQL and MariaDB have no WITH before INSERT; give the INSERT's SELECT the WITH clause"
+            .into(),
+    );
+    // Both ways of putting a WITH before an INSERT.
+    let with_query = insert.clone().with(cte.clone());
+    let with_cte = insert.with_cte(cte.clone()).to_owned();
+    assert_eq!(query_error(&with_query, MysqlQueryBuilder), refused);
+    assert_eq!(query_error(&with_query, MariaDbDialect), refused);
+    assert_eq!(query_error(&with_cte, MysqlQueryBuilder), refused);
+    assert_eq!(query_error(&with_cte, MariaDbDialect), refused);
+    assert_eq!(
+        with_query.to_string(SqliteQueryBuilder).unwrap(),
+        r#"WITH "c" AS (SELECT 1 AS "id") INSERT INTO "t" ("id") SELECT "id" FROM "c""#
+    );
+    assert_eq!(
+        with_cte.to_string(PostgresQueryBuilder).unwrap(),
+        r#"WITH "c" AS (SELECT 1 AS "id") INSERT INTO "t" ("id") SELECT "id" FROM "c""#
+    );
+    // The form the MySQL family takes.
+    let inner = Query::insert()
+        .into_table("t")
+        .columns(["id"])
+        .select_from(source.with_cte(cte).to_owned())
+        .unwrap()
+        .to_owned();
+    for sql in [
+        inner.to_string(MysqlQueryBuilder).unwrap(),
+        inner.to_string(MariaDbDialect).unwrap(),
+    ] {
+        assert_eq!(
+            sql,
+            "INSERT INTO `t` (`id`) WITH `c` AS (SELECT 1 AS `id`) SELECT `id` FROM `c`"
+        );
+    }
+}
