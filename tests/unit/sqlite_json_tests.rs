@@ -206,15 +206,16 @@ fn a_number_past_every_exponent_matches_no_stored_number() {
         "10e9223372036854775807",
     ));
     assert!(
-        predicate.contains("SELECT 0 FROM tide_num_normal"),
+        predicate.contains("(SELECT 0 FROM (SELECT negative,"),
         "{predicate}"
     );
     assert!(values.is_empty());
 
     let (predicate, values) = built(JsonTests::number_equals(&Node::document("doc"), "1.0e1"));
     assert!(
-        predicate
-            .contains("SELECT coefficient = ? AND negative = ? AND scale = ? FROM tide_num_normal"),
+        predicate.contains(
+            "(SELECT coefficient = ? AND negative = ? AND scale = ? FROM (SELECT negative,"
+        ),
         "{predicate}"
     );
     assert_eq!(

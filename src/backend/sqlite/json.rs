@@ -275,25 +275,24 @@ impl JsonTests {
             // stored number has that scale.
             (false, None) => BoundSql::sql("0"),
         };
+        // Derived tables, not a WITH: SQLite 3.54 refuses a statement whose
+        // CTEs open 1,000 cursors, which a long IN list of numbers reaches.
         bound!(
-            format!(
-                "({kind} IN ('integer', 'real') AND (WITH \
-                 tide_num_token AS (SELECT lower({raw}) AS token), \
-                 tide_num_unsigned AS (SELECT substr(token, 1, 1) = '-' AS negative, \
-                    CASE WHEN substr(token, 1, 1) = '-' THEN substr(token, 2) ELSE token END AS digits FROM tide_num_token), \
-                 tide_num_parts AS (SELECT negative, \
-                    CASE WHEN instr(digits, 'e') > 0 THEN substr(digits, 1, instr(digits, 'e') - 1) ELSE digits END AS mantissa, \
-                    CASE WHEN instr(digits, 'e') > 0 THEN CAST(substr(digits, instr(digits, 'e') + 1) AS INTEGER) ELSE 0 END AS exponent FROM tide_num_unsigned), \
-                 tide_num_digits AS (SELECT negative, replace(mantissa, '.', '') AS digits, \
-                    exponent - CASE WHEN instr(mantissa, '.') > 0 THEN length(mantissa) - instr(mantissa, '.') ELSE 0 END AS exponent FROM tide_num_parts), \
-                 tide_num_normal AS (SELECT negative, ltrim(rtrim(digits, '0'), '0') AS coefficient, \
-                    exponent + length(digits) - length(rtrim(digits, '0')) AS scale FROM tide_num_digits) \
-                 SELECT ",
-                kind = node.kind,
-                raw = node.raw_json,
-            ),
+            format!("({} IN ('integer', 'real') AND (SELECT ", node.kind),
             comparison,
-            " FROM tide_num_normal))"
+            format!(
+                " FROM (SELECT negative, ltrim(rtrim(digits, '0'), '0') AS coefficient, \
+                    exponent + length(digits) - length(rtrim(digits, '0')) AS scale \
+                 FROM (SELECT negative, replace(mantissa, '.', '') AS digits, \
+                    exponent - CASE WHEN instr(mantissa, '.') > 0 THEN length(mantissa) - instr(mantissa, '.') ELSE 0 END AS exponent \
+                 FROM (SELECT negative, \
+                    CASE WHEN instr(digits, 'e') > 0 THEN substr(digits, 1, instr(digits, 'e') - 1) ELSE digits END AS mantissa, \
+                    CASE WHEN instr(digits, 'e') > 0 THEN CAST(substr(digits, instr(digits, 'e') + 1) AS INTEGER) ELSE 0 END AS exponent \
+                 FROM (SELECT substr(token, 1, 1) = '-' AS negative, \
+                    CASE WHEN substr(token, 1, 1) = '-' THEN substr(token, 2) ELSE token END AS digits \
+                 FROM (SELECT lower({raw}) AS token)))))))",
+                raw = node.raw_json,
+            )
         )
     }
 
